@@ -3,6 +3,7 @@
 package day1
 
 import day1.Bank.Companion.MAX_AMOUNT
+import kotlinx.atomicfu.locks.withLock
 import java.util.concurrent.locks.*
 
 class FineGrainedBank(accountsNumber: Int) : Bank {
@@ -11,25 +12,32 @@ class FineGrainedBank(accountsNumber: Int) : Bank {
     override fun getAmount(id: Int): Long {
         // TODO: Make this operation thread-safe via fine-grained locking.
         val account = accounts[id]
-        return account.amount
+        return account.lock.withLock {
+            account.amount
+        }
     }
 
     override fun deposit(id: Int, amount: Long): Long {
         // TODO: Make this operation thread-safe via fine-grained locking.
         require(amount > 0) { "Invalid amount: $amount" }
         val account = accounts[id]
-        check(!(amount > MAX_AMOUNT || account.amount + amount > MAX_AMOUNT)) { "Overflow" }
-        account.amount += amount
-        return account.amount
+        return account.lock.withLock {
+            check(!(amount > MAX_AMOUNT || account.amount + amount > MAX_AMOUNT)) { "Overflow" }
+            account.amount += amount
+            account.amount
+        }
     }
 
     override fun withdraw(id: Int, amount: Long): Long {
         // TODO: Make this operation thread-safe via fine-grained locking.
         require(amount > 0) { "Invalid amount: $amount" }
         val account = accounts[id]
-        check(account.amount - amount >= 0) { "Underflow" }
-        account.amount -= amount
-        return account.amount
+
+        return account.lock.withLock {
+            check(account.amount - amount >= 0) { "Underflow" }
+            account.amount -= amount
+            account.amount
+        }
     }
 
     override fun transfer(fromId: Int, toId: Int, amount: Long) {
@@ -38,10 +46,22 @@ class FineGrainedBank(accountsNumber: Int) : Bank {
         require(fromId != toId) { "fromId == toId" }
         val from = accounts[fromId]
         val to = accounts[toId]
-        check(amount <= from.amount) { "Underflow" }
-        check(!(amount > MAX_AMOUNT || to.amount + amount > MAX_AMOUNT)) { "Overflow" }
-        from.amount -= amount
-        to.amount += amount
+
+        fun doTransfer() {
+            check(amount <= from.amount) { "Underflow" }
+            check(!(amount > MAX_AMOUNT || to.amount + amount > MAX_AMOUNT)) { "Overflow" }
+            from.amount -= amount
+            to.amount += amount
+        }
+
+        val (lock1, lock2) = if (fromId > toId) from.lock to to.lock
+        else to.lock to from.lock
+
+        lock1.withLock {
+            lock2.withLock {
+                doTransfer()
+            }
+        }
     }
 
     /**
