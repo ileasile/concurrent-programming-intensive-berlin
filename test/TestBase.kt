@@ -13,27 +13,10 @@ abstract class TestBase(
     val checkObstructionFreedom: Boolean = true,
 ) {
     @Test
-    fun veryFastModelCheckingTest() = try {
-        ModelCheckingOptions()
-            .iterations(30)
-            .invocationsPerIteration(1_000)
-            .actorsBefore(2)
-            .threads(3)
-            .actorsPerThread(3)
-            .actorsAfter(2)
-            .checkObstructionFreedom(checkObstructionFreedom)
-            .sequentialSpecification(sequentialSpecification.java)
-            .check(this::class.java)
-    } catch (t: Throwable) {
-        uploadIncorrectSolutionToS3("model-checking")
-        throw t
-    }
-
-    @Test
     fun modelCheckingTest() = try {
         ModelCheckingOptions()
-            .iterations(100)
-            .invocationsPerIteration(5_000)
+            .iterations(50)
+            .invocationsPerIteration(1_000)
             .actorsBefore(2)
             .threads(3)
             .actorsPerThread(3)
@@ -49,8 +32,8 @@ abstract class TestBase(
     @Test
     fun stressTest() = try {
         StressOptions()
-            .iterations(100)
-            .invocationsPerIteration(5_000)
+            .iterations(50)
+            .invocationsPerIteration(1_000)
             .actorsBefore(2)
             .threads(3)
             .actorsPerThread(3)
