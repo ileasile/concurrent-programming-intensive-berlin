@@ -15,18 +15,35 @@ class MSQueueWithConstantTimeRemove<E> : QueueWithRemove<E> {
     }
 
     override fun enqueue(element: E) {
-        // TODO: When adding a new node, check whether
-        // TODO: the previous tail is logically removed.
-        // TODO: If so, remove it physically from the linked list.
-        TODO("Implement me!")
+        val node = Node(element, null)
+        while (true) {
+            val curTail = tail.value
+            node.prev.value = curTail
+            var r = false
+            if (curTail.next.compareAndSet(null, node)) {
+                tail.compareAndSet(curTail, node)
+                r = true
+            } else {
+                val next = curTail.next.value
+                tail.compareAndSet(curTail, next!!)
+            }
+            if (r) {
+                if (curTail.extractedOrRemoved) curTail.removePhysically()
+                return
+            }
+        }
     }
 
     override fun dequeue(): E? {
-        // TODO: After moving the `head` pointer forward,
-        // TODO: mark the node that contains the extracting
-        // TODO: element as "extracted or removed", restarting
-        // TODO: the operation if this node has already been removed.
-        TODO("Implement me!")
+        while (true) {
+            val el = head.value
+            val nextEl = el.next.value ?: return null
+            nextEl.prev.value = null
+            // maybe set null?
+            if (head.compareAndSet(el, nextEl) && nextEl.markExtractedOrRemoved()) {
+                return nextEl.element
+            }
+        }
     }
 
     override fun remove(element: E): Boolean {
@@ -100,21 +117,41 @@ class MSQueueWithConstantTimeRemove<E> : QueueWithRemove<E> {
          * removed by [remove] or extracted by [dequeue].
          */
         fun remove(): Boolean {
-            // TODO: As in the previous task, the removal procedure is split into two phases.
-            // TODO: First, you need to mark the node as "extracted or removed".
-            // TODO: On success, this node is logically removed, and the
-            // TODO: operation should return `true` at the end.
-            // TODO: In the second phase, the node should be removed
-            // TODO: physically, updating the `next` field of the previous
-            // TODO: node to `this.next.value`.
-            // TODO: In this task, you have to maintain the `prev` pointer,
-            // TODO: which references the previous node. Thus, the `remove()`
-            // TODO: complexity becomes O(1) under no contention.
-            // TODO: Do not remove physical head and tail of the linked list;
-            // TODO: it is totally fine to have a bounded number of removed nodes
-            // TODO: in the linked list, especially when it significantly simplifies
-            // TODO: the algorithm.
-            TODO("Implement me!")
+            if (!markExtractedOrRemoved()) return false
+            removePhysically()
+            return true
+        }
+
+        fun removePhysically() {
+            val el = this
+            var elNext = el
+            var elPrev = el
+            var prev = el.prev.value
+            var next = el.next.value
+            while (true) {
+                if (prev == null || next == null) return
+
+                if (prev.next.compareAndSet(elPrev, next)) {
+                    if (!next.prev.compareAndSet(elNext, prev)) {
+                        prev.next.compareAndSet(next, elPrev)
+                        elNext = next
+                        next = next.next.value
+                        continue
+                    }
+                    if (prev.extractedOrRemoved && prev.prev.value != null) {
+                        prev.removePhysically()
+                        continue
+                    }
+                    if (next.extractedOrRemoved && next.next.value != null) {
+                        next.removePhysically()
+                        continue
+                    }
+                    return
+                } else {
+                    elPrev = prev
+                    prev = prev.prev.value
+                }
+            }
         }
     }
 }
