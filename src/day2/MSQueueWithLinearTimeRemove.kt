@@ -15,18 +15,32 @@ class MSQueueWithLinearTimeRemove<E> : QueueWithRemove<E> {
     }
 
     override fun enqueue(element: E) {
-        // TODO: When adding a new node, check whether
-        // TODO: the previous tail is logically removed.
-        // TODO: If so, remove it physically from the linked list.
-        TODO("Implement me!")
+        val node = Node(element)
+        while (true) {
+            val curTail = tail.value
+            var r = false
+            if (curTail.next.compareAndSet(null, node)) {
+                tail.compareAndSet(curTail, node)
+                r = true
+            } else {
+                val next = curTail.next.value
+                tail.compareAndSet(curTail, next!!)
+            }
+            if (r) {
+                if (curTail.extractedOrRemoved) curTail.removePhysically()
+                return
+            }
+        }
     }
 
     override fun dequeue(): E? {
-        // TODO: After moving the `head` pointer forward,
-        // TODO: mark the node that contains the extracting
-        // TODO: element as "extracted or removed", restarting
-        // TODO: the operation if this node has already been removed.
-        TODO("Implement me!")
+        while (true) {
+            val el = head.value
+            val nextEl = el.next.value ?: return null
+            if (head.compareAndSet(el, nextEl) && nextEl.markExtractedOrRemoved()) {
+                return nextEl.element
+            }
+        }
     }
 
     override fun remove(element: E): Boolean {
@@ -84,17 +98,27 @@ class MSQueueWithLinearTimeRemove<E> : QueueWithRemove<E> {
          * removed by [remove] or extracted by [dequeue].
          */
         fun remove(): Boolean {
-            // TODO: The removal procedure is split into two phases.
-            // TODO: First, you need to mark the node as "extracted or removed".
-            // TODO: On success, this node is logically removed, and the
-            // TODO: operation should return `true` at the end.
-            // TODO: In the second phase, the node should be removed
-            // TODO: physically, updating the `next` field of the previous
-            // TODO: node to `this.next.value`.
-            // TODO: Do not remove `head` and `tail` physically to make
-            // TODO: the algorithm simpler. In case a tail node is logically removed,
-            // TODO: it will be removed physically by `enqueue(..)`.
-            TODO("Implement me!")
+            if (!markExtractedOrRemoved()) return false
+            removePhysically()
+            return true
+        }
+
+        fun removePhysically() {
+            var prev: Node? = null
+            var el: Node? = head.value
+            while (el != null && el != this){
+                prev = el
+                el = el.next.value
+            }
+            if (el == null) return
+            val next = el.next.value
+            if (prev == null || next == null) return
+            if (prev.next.compareAndSet(el, next)) {
+                if (prev.extractedOrRemoved) prev.removePhysically()
+                if (next.extractedOrRemoved) next.removePhysically()
+            }
+            // why always true???
+            return
         }
     }
 }
