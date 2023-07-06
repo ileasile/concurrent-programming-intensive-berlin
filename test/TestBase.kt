@@ -11,18 +11,20 @@ import kotlin.reflect.*
 abstract class TestBase(
     val sequentialSpecification: KClass<*>,
     val checkObstructionFreedom: Boolean = true,
+    val scenarios: Int = 100
 ) {
     @Test
     fun modelCheckingTest() = try {
         ModelCheckingOptions()
-            .iterations(50)
-            .invocationsPerIteration(1_000)
+            .iterations(scenarios)
+            .invocationsPerIteration(5_000)
             .actorsBefore(2)
             .threads(3)
-            .actorsPerThread(3)
+            .actorsPerThread(2)
             .actorsAfter(2)
             .checkObstructionFreedom(checkObstructionFreedom)
             .sequentialSpecification(sequentialSpecification.java)
+            .apply { customConfiguration() }
             .check(this::class.java)
     } catch (t: Throwable) {
         uploadIncorrectSolutionToS3("model-checking")
@@ -32,18 +34,21 @@ abstract class TestBase(
     @Test
     fun stressTest() = try {
         StressOptions()
-            .iterations(50)
-            .invocationsPerIteration(1_000)
+            .iterations(scenarios)
+            .invocationsPerIteration(5_000)
             .actorsBefore(2)
             .threads(3)
-            .actorsPerThread(3)
+            .actorsPerThread(2)
             .actorsAfter(2)
             .sequentialSpecification(sequentialSpecification.java)
+            .apply { customConfiguration() }
             .check(this::class.java)
     } catch (t: Throwable) {
         uploadIncorrectSolutionToS3("stress")
         throw t
     }
+
+    protected open fun Options<*, *>.customConfiguration() {}
 
     private fun uploadIncorrectSolutionToS3(strategy: String) = runCatching {
         val taskName = this::class.java.simpleName.replace("Test", "")

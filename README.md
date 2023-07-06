@@ -132,3 +132,42 @@ in linear time, but remove this node in _constant_ time.
 
 * `./gradlew test --tests MSQueueWithConstantTimeRemoveTest` on Linux or MacOS
 * `gradlew test --tests MSQueueWithConstantTimeRemoveTest` on Windows
+
+## Day 3
+
+### CAS2: Simplified
+
+In [`src/day3/AtomicArrayWithCAS2Simplified.kt`](src/day3/AtomicArrayWithCAS2Simplified.kt),
+implement the `cas2(..)` operation. In this data task, all successful updates
+install unique values in the array cells.
+
+To test your solution, please run:
+
+* `./gradlew test --tests AtomicArrayWithCAS2SimplifiedTest` on Linux or MacOS
+* `gradlew test --tests AtomicArrayWithCAS2SimplifiedTest` on Windows
+
+### Double-Compare-Single-Set
+
+In [`src/day3/AtomicArrayWithDCSS.kt`](src/day3/AtomicArrayWithDCSS.kt),
+implement the `dcss(..)` operation. Similarly to CAS2, it requires
+allocating a descriptor and installing it in the updating memory location.
+We need the `dcss(..)` operation for the next task, to resolve the ABA-problem
+in the CAS2 algorithm.
+
+To test your solution, please run:
+
+* `./gradlew test --tests AtomicArrayWithDCSSTest` on Linux or MacOS
+* `gradlew test --tests AtomicArrayWithDCSSTest` on Windows
+
+### CAS2
+
+In [`src/day3/AtomicArrayWithCAS2.kt`](src/day3/AtomicArrayWithCAS2.kt),
+implement the `cas2(..)` operation. 
+Unlike in the "CAS2: Simplified" task, updates are no longer unique.
+This can lead to the ABA problem. To solve it, please use
+the Double-Compare-Single-Set operation when installing CAS2 descriptors.
+
+To test your solution, please run:
+
+* `./gradlew test --tests AtomicArrayWithCAS2Test` on Linux or MacOS
+* `gradlew test --tests AtomicArrayWithCAS2Test` on Windows
