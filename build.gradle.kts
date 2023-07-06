@@ -22,7 +22,7 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation(kotlin("reflect"))
     testImplementation(kotlin("test-junit"))
-    testImplementation("org.jetbrains.kotlinx:lincheck:2.21-IDEA-PLUGIN")
+    testImplementation("org.jetbrains.kotlinx:lincheck:2.21-IDEA-PLUGIN-1")
     testImplementation("com.amazonaws:aws-java-sdk-s3:1.12.429")
 }
 
