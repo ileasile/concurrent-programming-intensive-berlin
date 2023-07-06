@@ -19,7 +19,8 @@ class AtomicArrayWithCAS2<E : Any>(size: Int, initialValue: E) {
         while (true) {
             val x = array[index].value
             when {
-                x is AtomicArrayWithDCSS<*>.DCSSDescriptor -> x.apply(false)
+                x is AtomicArrayWithCAS2<*>.DCSSDescriptor -> x.apply(false)
+                x is AtomicArrayWithCAS2<*>.CAS2Descriptor -> x.apply()
                 x === expected -> {
                     if (array[index].compareAndSet(expected, update)) return true
                 }
@@ -31,24 +32,34 @@ class AtomicArrayWithCAS2<E : Any>(size: Int, initialValue: E) {
     }
 
     fun get(index: Int): E {
-        return when(val value =  array[index].value) {
-            is AtomicArrayWithCAS2Simplified<*>.CAS2Descriptor -> {
-                if (index == value.index1) {
-                    if (value.status.value == AtomicArrayWithCAS2Simplified.Status.SUCCESS) {
-                        value.update1
+        var el: Any? = array[index].value
+        while (true) {
+            el = when(val value =  el) {
+                is AtomicArrayWithCAS2<*>.CAS2Descriptor -> {
+                    if (index == value.index1) {
+                        if (value.status.value == Status.SUCCESS) {
+                            value.update1
+                        } else {
+                            value.expected1
+                        }
                     } else {
-                        value.expected1
-                    }
-                } else {
-                    if (value.status.value == AtomicArrayWithCAS2Simplified.Status.SUCCESS) {
-                        value.update2
-                    } else {
-                        value.expected2
+                        if (value.status.value == Status.SUCCESS) {
+                            value.update2
+                        } else {
+                            value.expected2
+                        }
                     }
                 }
+                is AtomicArrayWithCAS2<*>.DCSSDescriptor -> {
+                    if (value.status.value == Status.SUCCESS) {
+                        value.updateEl
+                    } else {
+                        value.expectedEl
+                    }
+                }
+                else -> return value as E
             }
-            else -> value
-        } as E
+        }
     }
 
     fun cas2(
@@ -65,24 +76,22 @@ class AtomicArrayWithCAS2<E : Any>(size: Int, initialValue: E) {
         return descriptor.status.value == Status.SUCCESS
     }
 
-    fun dcss(
-        index1: Int, expected1: E, update1: E,
-        index2: Int, expected2: E
+    fun dcssWithStatus(
+        index: Int, expectedEl: Any, updateEl: Any,
+        obj1: CAS2Descriptor, expectedStatus: Status
     ): Boolean {
-        require(index1 != index2) { "The indices should be different" }
-
-        val descriptor = DCSSDescriptor(index1, index2, expected1, expected2, update1)
+        val descriptor = DCSSDescriptor(index, expectedEl, updateEl, obj1, expectedStatus)
         descriptor.apply(true)
 
         return descriptor.status.value == Status.SUCCESS
     }
 
     inner class DCSSDescriptor(
-        val index1: Int,
-        val index2: Int,
-        val expected1: E,
-        val expected2: E,
-        val update1: E
+        val index: Int,
+        val expectedEl: Any,
+        val updateEl: Any,
+        val obj1: CAS2Descriptor,
+        val expectedStatus: Status
     ) {
         val status = atomic(Status.UNDECIDED)
 
@@ -98,19 +107,19 @@ class AtomicArrayWithCAS2<E : Any>(size: Int, initialValue: E) {
         }
 
         private fun afterCheck(): Boolean {
-            return get(index2) === expected2
+            return obj1.status.value === expectedStatus
         }
 
         private fun tryInstall(): Boolean {
             while (true) {
-                val x = array[index1].value
-
+                val x = array[index].value
                 when {
                     x === this -> return true
-                    x is AtomicArrayWithDCSS<*>.DCSSDescriptor -> x.apply(false)
-                    x === expected1 -> {
-                        if (array[index1].compareAndSet(expected1, this)) return true
+                    x === expectedEl -> {
+                        if (array[index].compareAndSet(expectedEl, this)) return true
                     }
+                    x is AtomicArrayWithCAS2<*>.DCSSDescriptor -> x.apply(false)
+                    x is AtomicArrayWithCAS2<*>.CAS2Descriptor -> x.apply()
                     else -> return false
                 }
             }
@@ -119,8 +128,8 @@ class AtomicArrayWithCAS2<E : Any>(size: Int, initialValue: E) {
         private fun updateValue() {
             val s = status.value
             when(s) {
-                Status.SUCCESS -> array[index1].compareAndSet(this, update1)
-                else -> array[index1].compareAndSet(this, expected1)
+                Status.SUCCESS -> array[index].compareAndSet(this, updateEl)
+                else -> array[index].compareAndSet(this, expectedEl)
             }
         }
     }
@@ -144,10 +153,12 @@ class AtomicArrayWithCAS2<E : Any>(size: Int, initialValue: E) {
                 val value = array[index].value
                 when {
                     value === this -> return true
-                    value is AtomicArrayWithCAS2Simplified<*>.CAS2Descriptor -> value.apply()
                     value === expected -> {
-                        if (array[index].compareAndSet(expected, this)) return true
+                        if (status.value != Status.UNDECIDED) return false
+                        if (dcssWithStatus(index, expected, this, this, Status.UNDECIDED)) return true
                     }
+                    value is AtomicArrayWithCAS2<*>.DCSSDescriptor -> value.apply(false)
+                    value is AtomicArrayWithCAS2<*>.CAS2Descriptor -> value.apply()
                     else -> {
                         return false
                     }
