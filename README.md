@@ -135,6 +135,18 @@ in linear time, but remove this node in _constant_ time.
 
 ## Day 3
 
+### CAS2: Single-Writer
+
+In [`src/day3/AtomicArrayWithCAS2SingleWriter.kt`](src/day3/AtomicArrayWithCAS2SingleWriter.kt),
+implement the `cas2(..)` and `get(..)` operations. 
+In this data task, `CAS2(..)` can be called only in one thread,
+so concurrent `CAS2(..)` invocations are forbidden.
+
+To test your solution, please run:
+
+* `./gradlew test --tests AtomicArrayWithCAS2SingleWriterTest` on Linux or MacOS
+* `gradlew test --tests AtomicArrayWithCAS2SingleWriterTest` on Windows
+
 ### CAS2: Simplified
 
 In [`src/day3/AtomicArrayWithCAS2Simplified.kt`](src/day3/AtomicArrayWithCAS2Simplified.kt),

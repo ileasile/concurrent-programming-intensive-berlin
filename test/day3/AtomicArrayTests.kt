@@ -41,6 +41,23 @@ class AtomicArrayWithCAS2Test : TestBase(IntAtomicArraySequential::class) {
     ) = array.cas2(index1, expected1, update1, index2, expected2, update2)
 }
 
+@Param(name = "index", gen = IntGen::class, conf = "0:${ARRAY_SIZE - 1}")
+@Param(name = "value", gen = IntGen::class, conf = "0:2")
+class AtomicArrayWithCAS2SingleWriterTest : TestBase(IntAtomicArraySequential::class) {
+    private val array = AtomicArrayWithCAS2SingleWriter(ARRAY_SIZE, 0)
+
+    @Operation(params = ["index"])
+    fun get(index: Int) = array.get(index)
+
+    @Operation(
+        params = ["index", "value", "value", "index", "value", "value"],
+        nonParallelGroup = "writer")
+    fun cas2(
+        index1: Int, expected1: Int, update1: Int,
+        index2: Int, expected2: Int, update2: Int
+    ) = array.cas2(index1, expected1, update1, index2, expected2, update2)
+}
+
 class AtomicArrayWithCAS2SimplifiedTest : TestBase(
     IntAtomicArraySequential::class,
     scenarios = 0
