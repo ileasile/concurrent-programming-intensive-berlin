@@ -16,8 +16,24 @@ class AtomicArrayWithCAS2Simplified<E : Any>(size: Int, initialValue: E) {
     }
 
     fun get(index: Int): E {
-        // TODO: the cell can store CAS2Descriptor
-        return array[index].value as E
+        return when(val value =  array[index].value) {
+            is AtomicArrayWithCAS2Simplified<*>.CAS2Descriptor -> {
+                if (index == value.index1) {
+                    if (value.status.value == SUCCESS) {
+                        value.update1
+                    } else {
+                        value.expected1
+                    }
+                } else {
+                    if (value.status.value == SUCCESS) {
+                        value.update2
+                    } else {
+                        value.expected2
+                    }
+                }
+            }
+            else -> value
+        } as E
     }
 
     fun cas2(
@@ -25,26 +41,64 @@ class AtomicArrayWithCAS2Simplified<E : Any>(size: Int, initialValue: E) {
         index2: Int, expected2: E, update2: E
     ): Boolean {
         require(index1 != index2) { "The indices should be different" }
-        // TODO: this implementation is not linearizable,
-        // TODO: use CAS2Descriptor to fix it.
-        if (array[index1].value != expected1 || array[index2].value != expected2) return false
-        array[index1].value = update1
-        array[index2].value = update2
-        return true
+
+        if (index1 < index2) return cas2(index2, expected2, update2, index1, expected1, update1)
+
+        val descriptor = CAS2Descriptor(index1, expected1, update1, index2, expected2, update2)
+
+        descriptor.apply()
+        return descriptor.status.value == SUCCESS
     }
 
     inner class CAS2Descriptor(
-        private val index1: Int,
-        private val expected1: E,
-        private val update1: E,
-        private val index2: Int,
-        private val expected2: E,
-        private val update2: E
+        val index1: Int,
+        val expected1: E,
+        val update1: E,
+        val index2: Int,
+        val expected2: E,
+        val update2: E
     ) {
         val status = atomic(UNDECIDED)
 
+        private fun tryInstallDescriptor(): Boolean {
+            return tryInstallDescriptor(index1, expected1) && tryInstallDescriptor(index2, expected2)
+        }
+
+        private fun tryInstallDescriptor(index: Int, expected: E): Boolean {
+            while (true) {
+                val value = array[index].value
+                when {
+                    value === this -> return true
+                    value is AtomicArrayWithCAS2Simplified<*>.CAS2Descriptor -> value.apply()
+                    value === expected -> {
+                        if (array[index].compareAndSet(expected, this)) return true
+                    }
+                    else -> {
+                        return false
+                    }
+                }
+            }
+        }
+
+        private fun updateValues() {
+            if (status.value == SUCCESS) {
+                array[index1].compareAndSet(this, update1)
+                array[index2].compareAndSet(this, update2)
+            } else {
+                array[index1].compareAndSet(this, expected1)
+                array[index2].compareAndSet(this, expected2)
+            }
+        }
+
         fun apply() {
-            // TODO: install the descriptor, update the status, update the cells.
+            if (status.value == UNDECIDED) {
+                if (tryInstallDescriptor()) {
+                    status.compareAndSet(UNDECIDED, SUCCESS)
+                } else {
+                    status.compareAndSet(UNDECIDED, FAILED)
+                }
+            }
+            updateValues()
         }
     }
 

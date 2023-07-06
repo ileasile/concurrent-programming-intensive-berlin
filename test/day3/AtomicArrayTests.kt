@@ -7,7 +7,7 @@ import org.jetbrains.kotlinx.lincheck.paramgen.*
 
 @Param(name = "index", gen = IntGen::class, conf = "0:${ARRAY_SIZE - 1}")
 @Param(name = "value", gen = IntGen::class, conf = "0:2")
-class AtomicArrayWithDCSSTest : TestBase(IntAtomicArraySequential::class) {
+class AtomicArrayWithDCSSTest : TestBase(IntAtomicArraySequential::class, scenarios = 200) {
     private val array = AtomicArrayWithDCSS(ARRAY_SIZE, 0)
 
     @Operation(params = ["index"])

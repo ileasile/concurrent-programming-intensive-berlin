@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray
 // TODO: and implement the infinite array on a linked list
 // TODO: of fixed-size segments.
 class FAABasedQueue<E> : Queue<E> {
-    private val SIZE = 64
+    private val SIZE = 2
     private val segments = AtomicReference(Node(AtomicReferenceArray<Any?>(SIZE), 0))
 
     private val enqIdx = atomic(0)
@@ -21,11 +21,12 @@ class FAABasedQueue<E> : Queue<E> {
             val oldEl = el
             val nextNode = el.next.value
             el = if (nextNode == null) {
-                val newNode = Node(AtomicReferenceArray<Any?>(SIZE), el.idx + 1)
-                if (!el.next.compareAndSet(null, newNode)) {
-                    continue
+                val newNode = Node(AtomicReferenceArray<Any?>(SIZE), oldEl.idx + 1)
+                if (!oldEl.next.compareAndSet(null, newNode)) {
+                    oldEl.next.value!!
+                } else {
+                    newNode
                 }
-                newNode
             } else {
                 nextNode
             }

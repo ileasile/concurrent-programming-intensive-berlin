@@ -124,34 +124,12 @@ class MSQueueWithConstantTimeRemove<E> : QueueWithRemove<E> {
 
         fun removePhysically() {
             val el = this
-            var elNext = el
-            var elPrev = el
-            var prev = el.prev.value
-            var next = el.next.value
-            while (true) {
-                if (prev == null || next == null) return
+            val prev = el.prev.value
+            val next = el.next.value
+            if (next == null || prev == null) return
 
-                if (prev.next.compareAndSet(elPrev, next)) {
-                    if (!next.prev.compareAndSet(elNext, prev)) {
-                        prev.next.compareAndSet(next, elPrev)
-                        elNext = next
-                        next = next.next.value
-                        continue
-                    }
-                    if (prev.extractedOrRemoved && prev.prev.value != null) {
-                        prev.removePhysically()
-                        continue
-                    }
-                    if (next.extractedOrRemoved && next.next.value != null) {
-                        next.removePhysically()
-                        continue
-                    }
-                    return
-                } else {
-                    elPrev = prev
-                    prev = prev.prev.value
-                }
-            }
+            next.prev.compareAndSet(el, prev)
+            prev.next.compareAndSet(el, next)
         }
     }
 }
